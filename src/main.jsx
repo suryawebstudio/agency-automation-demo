@@ -3,7 +3,7 @@ import {createRoot} from 'react-dom/client';
 import './styles.css';
 import {supabase} from './supabase';
 
-const ADMIN_EMAIL='suryawebstudio@gmail.com';
+const ADMIN_EMAIL='hello.surya69@gmail.com';
 
 function scoreLead(f){let s=0;if(f.service)s+=20;if(f.budget&&f.budget!=='Unknown')s+=25;if(f.timeline==='2 weeks')s+=30;else if(f.timeline==='1 month')s+=20;else if(f.timeline==='3 months')s+=10;if(f.company)s+=10;if((f.message||'').length>20)s+=7;return Math.min(100,s)}
 function normalizeLead(l){return {...l,score:l.lead_score??0,priority:(l.priority||'cold').toUpperCase(),status:(l.status||'new').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),message:l.summary||''}}
