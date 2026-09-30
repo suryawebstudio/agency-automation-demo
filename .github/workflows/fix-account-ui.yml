@@ -1,0 +1,74 @@
+name: Fix account UI
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch authentication UI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/main.jsx')
+          text=p.read_text()
+
+          login_start=text.find('function Login(){')
+          invite_start=text.find('function InvitePanel(', login_start)
+          if login_start < 0 or invite_start < 0:
+              raise SystemExit('Login boundaries not found')
+
+          login='''function Login(){const [email,setEmail]=useState('');const [password,setPassword]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [resetSent,setResetSent]=useState(false);const submit=async e=>{e.preventDefault();setError('');setResetSent(false);setBusy(true);const normalized=email.trim().toLowerCase();const {error:authError}=await supabase.auth.signInWithPassword({email:normalized,password});if(authError)setError(authError.message);setBusy(false)};const forgot=async()=>{setError('');setResetSent(false);const normalized=email.trim().toLowerCase();if(!normalized){setError('Enter your email address first.');return}setBusy(true);const {error:resetError}=await supabase.auth.resetPasswordForEmail(normalized,{redirectTo:`${SITE_URL}/#reset-password`});if(resetError)setError(resetError.message);else setResetSent(true);setBusy(false)};return <main className="center"><section className="card formcard login-card"><span className="eyebrow">LEADFLOW • SECURE TEAM LOGIN</span><h2>Team member login</h2><p>Use the email and password provided by your administrator.</p><form onSubmit={submit}><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Work email" autoComplete="username" required/><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" autoComplete="current-password" minLength={8} required/><button disabled={busy} className="primary">{busy?'Signing in…':'Sign in →'}</button></form><button type="button" className="secondary small" style={{marginTop:10,width:'100%'}} disabled={busy} onClick={forgot}>Forgot password?</button>{error&&<div className="error">{error}</div>}{resetSent&&<div className="success">Password reset email sent. Check your inbox.</div>}<div className="notice">Accounts are created only by the administrator. Authentication is handled by Supabase; passwords are never stored in this app's frontend.</div></section></main>}\n'''
+          text=text[:login_start]+login+text[invite_start:]
+
+          if 'function AccountPanel(' not in text:
+              marker='function App(){'
+              account='''function AccountPanel({onClose}){const [password,setPassword]=useState('');const [confirm,setConfirm]=useState('');const [busy,setBusy]=useState(false);const [message,setMessage]=useState('');const [error,setError]=useState('');const changePassword=async e=>{e.preventDefault();setError('');setMessage('');if(password.length<8){setError('Password must be at least 8 characters.');return}if(password!==confirm){setError('Passwords do not match.');return}setBusy(true);const {error:updateError}=await supabase.auth.updateUser({password});if(updateError)setError(updateError.message);else{setPassword('');setConfirm('');setMessage('Password changed successfully.');}setBusy(false)};return <div className="overlay" onClick={()=>!busy&&onClose()}><div className="modal" onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>!busy&&onClose()}>×</button><span className="eyebrow">ACCOUNT SECURITY</span><h2>Account</h2><p>Change the password used to sign in to this CRM account.</p><form className="formcard" style={{padding:0,boxShadow:'none',border:0}} onSubmit={changePassword}><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="New password (8+ characters)" autoComplete="new-password" minLength={8} required/><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} placeholder="Confirm new password" autoComplete="new-password" minLength={8} required/>{error&&<div className="error">{error}</div>}{message&&<div className="success">{message}</div>}<div className="modal-actions"><button type="button" className="secondary" onClick={onClose}>Close</button><button disabled={busy} className="primary">{busy?'Updating…':'Change password'}</button></div></form></div></div>}\n\n'''
+              if marker not in text: raise SystemExit('App marker not found')
+              text=text.replace(marker,account+marker,1)
+
+          if 'accountOpen' not in text:
+              needle='const [selectedIds,setSelectedIds]=useState([]);'
+              if needle not in text: raise SystemExit('state marker not found')
+              text=text.replace(needle,needle+'const [accountOpen,setAccountOpen]=useState(false);',1)
+
+          if '>Account</button>' not in text:
+              needle='<span className="member-badge">{member.email}</span><button onClick={()=>setView(\'dashboard\')} className={view===\'dashboard\'?\'active\':\'\'}>Dashboard</button>'
+              replacement='<span className="member-badge">{member.email}</span><button onClick={()=>setAccountOpen(true)} className={accountOpen?\'active\':\'\'}>Account</button><button onClick={()=>setView(\'dashboard\')} className={view===\'dashboard\'?\'active\':\'\'}>Dashboard</button>'
+              if needle not in text: raise SystemExit('navigation marker not found')
+              text=text.replace(needle,replacement,1)
+
+          if 'accountOpen&&<AccountPanel' not in text:
+              needle='{editing&&<LeadEditor lead={editing} onClose={()=>setEditing(null)} onSaved={saveEdited} setError={setError}/>}'
+              if needle not in text: raise SystemExit('modal marker not found')
+              text=text.replace(needle,needle+'{accountOpen&&<AccountPanel onClose={()=>setAccountOpen(false)}/>}' ,1)
+
+          p.write_text(text)
+          PY
+
+      - name: Build
+        run: |
+          npm install --progress=false
+          npm run build
+
+      - name: Commit patched app and remove this one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/fix-account-ui.yml
+          git add src/main.jsx .github/workflows/fix-account-ui.yml
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git commit -m "Fix account navigation and forgot password"
+          git push
