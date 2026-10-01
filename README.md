@@ -1,16 +1,15 @@
-# Agency Automation Demo
+# SuryaWebStudio CRM
 
-A working lead qualification and sales-workflow demo for Digital Whopper / agencies.
+A production lead-management and sales-workflow application for SuryaWebStudio.
 
-## MVP
-- Public lead intake form
-- Deterministic lead scoring
-- Hot / warm / cold priority
-- Supabase-ready data model
-- Admin dashboard
-- Lead detail + follow-up status
-- Demo notification panel
-- Meeting booking CTA placeholder
+## Features
+- Secure team authentication
+- Role-based team access
+- Lead intake and bulk import
+- Lead scoring and prioritization
+- Lead pipeline management
+- Activity audit log
+- Supabase-backed data protection
 
 ## Run locally
 ```bash
@@ -19,6 +18,4 @@ npm run dev
 ```
 
 ## Supabase
-Create a `.env.local` file using `.env.example` and add your Supabase project URL and anon/publishable key.
-
-The app is intentionally designed so no OpenAI or other paid AI API key is required for the first demo. AI qualification can be added later behind a server-side endpoint.
+Create a `.env.local` file using `.env.example` and add your Supabase project URL and publishable key.
